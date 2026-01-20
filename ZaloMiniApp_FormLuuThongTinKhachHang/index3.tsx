@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { Box, Text, Input, Button, Switch, useSnackbar, Sheet } from "zmp-ui";
-import { getUserInfo, getPhoneNumber } from "zmp-sdk/apis";
+import {
+  Box,
+  Text,
+  Input,
+  Button,
+  Switch,
+  useSnackbar,
+  Sheet,
+  Modal,
+} from "zmp-ui";
+import { getUserInfo, getPhoneNumber, closeApp } from "zmp-sdk/apis";
 
 // 1. Danh sách tỉnh thành
 const PROVINCES = [
@@ -40,8 +49,8 @@ const PROVINCES = [
   "Vĩnh Long",
 ];
 
-// 2. Hàm hỗ trợ tìm kiếm không dấu (Quan trọng để tìm kiếm mượt)
-const removeAccents = (str) => {
+// 2. Hàm hỗ trợ tìm kiếm không dấu
+const removeAccents = (str: string) => {
   if (!str) return "";
   return str
     .normalize("NFD")
@@ -52,15 +61,15 @@ const removeAccents = (str) => {
 };
 
 export default function CustomerSurveyForm() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // 1: Điều khoản, 2: Form, 3: Cảm ơn
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [gender, setGender] = useState("");
-  const [province, setProvince] = useState(""); // Lưu tỉnh thành đã chọn
+  const [province, setProvince] = useState("");
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSkipModal, setShowSkipModal] = useState(false);
 
-  // State cho Sheet tìm kiếm
   const [sheetVisible, setSheetVisible] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -117,15 +126,15 @@ export default function CustomerSurveyForm() {
         mode: "no-cors",
         body: params,
       });
-      openSnackbar({ text: "Gửi thông tin thành công! 🎉", type: "success" });
-      setStep(1);
-    } catch (error) {
+      setStep(3);
+    } catch (e) {
       openSnackbar({ text: "Gửi thất bại!", type: "error" });
     } finally {
       setLoading(false);
     }
   };
 
+  // --- MÀN HÌNH 1: ĐIỀU KHOẢN ---
   if (step === 1) {
     return (
       <Box className="p-4 bg-white" style={{ minHeight: "100vh" }}>
@@ -133,38 +142,172 @@ export default function CustomerSurveyForm() {
           Khảo sát Thế Giới Kim Cương
         </Text.Title>
         <Box
-          className="p-3 border rounded-lg overflow-y-auto mb-4"
-          style={{ height: "60vh", backgroundColor: "#f9f9f9" }}
+          className="p-3 border rounded-lg mb-4"
+          style={{
+            height: "55vh",
+            backgroundColor: "#f9f9f9",
+            overflowY: "auto",
+          }}
         >
           <Text size="small">
-            Trong quá trình tham gia khảo sát, tôi hiểu rằng Công ty có thể sử
-            dụng thông tin cá nhân của tôi...
+            Trong quá trình tham gia khảo sát, tôi hiểu rằng Công ty có thể thu
+            thập và sử dụng thông tin cá nhân của tôi để phục vụ mục đích chăm
+            sóc khách hàng...
           </Text>
         </Box>
+
         <Box className="flex items-center mb-6">
           <Switch
             checked={agreed}
             onChange={(e) => setAgreed(e.target.checked)}
           />
-          <Text className="ml-2" bold>
-            Tôi ĐỒNG Ý và TIẾP TỤC
+          <Text className="ml-2">
+            Tôi <span style={{ fontWeight: "900" }}>ĐỒNG Ý</span> và{" "}
+            <span style={{ fontWeight: "900" }}>TIẾP TỤC</span>
           </Text>
         </Box>
-        <Button fullWidth disabled={!agreed} onClick={() => setStep(2)}>
-          Tiếp tục
+
+        <Box className="space-y-2">
+          <Button fullWidth disabled={!agreed} onClick={() => setStep(2)}>
+            Tiếp tục
+          </Button>
+          {!agreed && (
+            <Button
+              fullWidth
+              variant="tertiary"
+              onClick={() => setShowSkipModal(true)}
+            >
+              Bỏ qua
+            </Button>
+          )}
+        </Box>
+
+        {/* <Modal
+          visible={showSkipModal}
+          title="Xác nhận"
+          onClose={() => setShowSkipModal(false)}
+          verticalActions="true"
+          actions={[
+            {
+              text: "Tiếp tục khảo sát",
+              onClick: () => setShowSkipModal(false),
+            },
+            {
+              text: "Bỏ qua khảo sát",
+              danger: true,
+              onClick: () => closeApp({}),
+            },
+          ]}
+        >
+          <Box className="text-left">
+            <Text>Anh/Chị xác nhận không tham gia khảo sát này?</Text>
+          </Box>
+        </Modal> */}
+
+        <Modal
+          visible={showSkipModal}
+          onClose={() => setShowSkipModal(false)}
+          // Để trống actions để tự tạo layout nút căn giữa tuyệt đối
+        >
+          <Box className="flex flex-col items-center">
+            <Text
+              bold
+              className="mb-4 text-center"
+              // Tăng fontSize lên 24px hoặc 28px để chữ thật to
+              style={{ fontSize: "22px", lineHeight: "32px", color: "#000" }}
+            >
+              Xác nhận
+            </Text>
+            <Text className="text-center mb-6">
+              Anh/Chị xác nhận không tham gia khảo sát này?
+            </Text>
+
+            <Box className="w-full space-y-2">
+              {/* Nút Tiếp tục: Căn giữa mặc định */}
+              <Button
+                fullWidth
+                variant="primary"
+                onClick={() => setShowSkipModal(false)}
+              >
+                Tiếp tục khảo sát
+              </Button>
+
+              {/* Nút Thoát: Dùng type="danger" thay vì danger */}
+              <Button
+                fullWidth
+                variant="tertiary"
+                type="danger"
+                onClick={async () => {
+                  await closeApp({});
+                }}
+              >
+                Thoát ứng dụng
+              </Button>
+            </Box>
+          </Box>
+        </Modal>
+      </Box>
+    );
+  }
+
+  // --- MÀN HÌNH 3: CẢM ƠN ---
+  if (step === 3) {
+    return (
+      <Box
+        className="p-6 bg-white flex flex-col items-center justify-center"
+        style={{ minHeight: "100vh" }}
+      >
+        <Box className="text-center mb-6">
+          <Text bold className="mb-2" style={{ fontSize: "18px" }}>
+            Cảm ơn Quý Khách Hàng!
+          </Text>
+          <Text size="small" className="text-gray-600 text-center">
+            Chúng tôi trân trọng sự đóng góp của bạn để cải tiến dịch vụ tốt
+            hơn.
+          </Text>
+        </Box>
+        <Box
+          className="mb-8 p-4 border rounded-xl"
+          style={{
+            borderColor: "#ffcccc",
+            backgroundColor: "#fffafa",
+            width: "100%",
+          }}
+        >
+          <img
+            src="https://file.hstatic.net/1000381168/file/mathew.jpg"
+            // src="https://img.freepik.com/premium-vector/cute-panda-character-vector-illustration_6735-866.jpg"
+            style={{ width: "100%", borderRadius: "8px" }}
+          />
+        </Box>
+        <Button fullWidth onClick={() => closeApp({})}>
+          Đóng
         </Button>
       </Box>
     );
   }
 
+  // --- MÀN HÌNH 2: FORM KHẢO SÁT ---
   return (
-    <Box className="bg-gray-100" style={{ minHeight: "100vh" }}>
-      <Box className="p-6 bg-white m-4 rounded-xl shadow-lg">
+    <Box
+      className="bg-gray-100 p-4"
+      style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}
+    >
+      <Box className="p-6 bg-white rounded-xl shadow-lg">
+        <Box style={{ width: "100%", overflow: "hidden", lineHeight: 0 }}>
+          <img
+            src="https://cdn.hstatic.net/files/1000381168/file/slide_km_1db1f9d59b3e42a1b762a95b670d1f6f_master.png"
+            style={{ width: "100%", objectFit: "cover" }}
+            alt="banner"
+          />
+        </Box>
+        <br />
         <Text.Title className="text-center mb-6" style={{ color: "#b4975a" }}>
           THÔNG TIN KHÁCH HÀNG
         </Text.Title>
 
         <Box className="space-y-4">
+          {/* 1. Họ và tên */}
           <Box>
             <Text size="small" bold>
               Họ và tên <span style={{ color: "red" }}>*</span>
@@ -176,6 +319,7 @@ export default function CustomerSurveyForm() {
             />
           </Box>
 
+          {/* 2. Giới tính */}
           <Box>
             <Text size="small" bold className="mb-2 block">
               Giới tính <span style={{ color: "red" }}>*</span>
@@ -194,6 +338,7 @@ export default function CustomerSurveyForm() {
             </Box>
           </Box>
 
+          {/* 3. Số điện thoại */}
           <Box>
             <Text size="small" bold>
               Số điện thoại <span style={{ color: "red" }}>*</span>
@@ -210,7 +355,7 @@ export default function CustomerSurveyForm() {
             />
           </Box>
 
-          {/* PHẦN CHỌN TỈNH THÀNH - ĐÃ SỬA LỖI KHÔNG LOAD ĐƯỢC DỮ LIỆU */}
+          {/* 4. Tỉnh / Thành phố */}
           <Box>
             <Text size="small" bold>
               Tỉnh/ Thành <span style={{ color: "red" }}>*</span>
@@ -218,7 +363,7 @@ export default function CustomerSurveyForm() {
             <Input
               readOnly
               placeholder="Chọn tỉnh thành"
-              value={province} // QUAN TRỌNG: Hiển thị giá trị từ state province
+              value={province}
               onClick={() => setSheetVisible(true)}
             />
 
@@ -230,38 +375,38 @@ export default function CustomerSurveyForm() {
             >
               <Box className="p-4" style={{ minHeight: "60vh" }}>
                 <Input.Search
-                  placeholder="Tìm tên tỉnh thành..."
+                  placeholder="Tìm kiếm tỉnh thành..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="mb-4"
                 />
-                <Box style={{ maxHeight: "45vh", overflowY: "auto" }}>
+                <div style={{ maxHeight: "45vh", overflowY: "auto" }}>
                   {PROVINCES.filter((p) =>
                     removeAccents(p).includes(removeAccents(searchQuery))
                   ).map((p) => (
                     <div
                       key={p}
                       className="py-3 border-b active:bg-gray-100"
-                      style={{ cursor: "pointer", display: "block" }}
+                      style={{ cursor: "pointer" }}
                       onClick={() => {
-                        setProvince(p); // Gán giá trị vào state
-                        setSheetVisible(false); // Đóng sheet
-                        setSearchQuery(""); // Reset ô tìm kiếm
+                        setProvince(p);
+                        setSheetVisible(false);
+                        setSearchQuery("");
                       }}
                     >
                       <Text>{p}</Text>
                     </div>
                   ))}
-                </Box>
+                </div>
               </Box>
             </Sheet>
           </Box>
 
+          {/* Nút Gửi */}
           <Button
             fullWidth
             loading={loading}
             onClick={handleSubmit}
-            className="mt-6"
             style={{
               background: "linear-gradient(90deg, #b4975a, #d4bd8a)",
               borderRadius: "24px",
@@ -274,6 +419,619 @@ export default function CustomerSurveyForm() {
     </Box>
   );
 }
+
+// import React, { useEffect, useState } from "react";
+// import { Box, Text, Input, Button, Switch, useSnackbar, Sheet } from "zmp-ui";
+// import { getUserInfo, getPhoneNumber } from "zmp-sdk/apis";
+
+// const PROVINCES = [
+//   "TP. Hồ Chí Minh",
+//   "TP. Hà Nội",
+//   "TP. Cần Thơ",
+//   "TP. Đà Nẵng",
+//   "TP. Hải Phòng",
+//   "TP. Huế",
+//   "An Giang",
+//   "Bắc Ninh",
+//   "Cà Mau",
+//   "Cao Bằng",
+//   "Đắk Lắk",
+//   "Điện Biên",
+//   "Đồng Nai",
+//   "Đồng Tháp",
+//   "Gia Lai",
+//   "Hà Tĩnh",
+//   "Hưng Yên",
+//   "Khánh Hoà",
+//   "Lai Châu",
+//   "Lâm Đồng",
+//   "Lạng Sơn",
+//   "Lào Cai",
+//   "Nghệ An",
+//   "Ninh Bình",
+//   "Phú Thọ",
+//   "Quảng Ngãi",
+//   "Quảng Ninh",
+//   "Quảng Trị",
+//   "Sơn La",
+//   "Tây Ninh",
+//   "Thái Nguyên",
+//   "Thanh Hóa",
+//   "Tuyên Quang",
+//   "Vĩnh Long",
+// ];
+
+// const removeAccents = (str: string) => {
+//   if (!str) return "";
+//   return str
+//     .normalize("NFD")
+//     .replace(/[\u0300-\u036f]/g, "")
+//     .replace(/đ/g, "d")
+//     .replace(/Đ/g, "D")
+//     .toLowerCase();
+// };
+
+// export default function CustomerSurveyForm() {
+//   const [step, setStep] = useState(1); // 1: Điều khoản, 2: Form, 3: Cảm ơn
+//   const [fullName, setFullName] = useState("");
+//   const [phone, setPhone] = useState("");
+//   const [gender, setGender] = useState("");
+//   const [province, setProvince] = useState("");
+//   const [agreed, setAgreed] = useState(false);
+//   const [loading, setLoading] = useState(false);
+
+//   const [sheetVisible, setSheetVisible] = useState(false);
+//   const [searchQuery, setSearchQuery] = useState("");
+
+//   const { openSnackbar } = useSnackbar();
+
+//   const APP_SCRIPT_URL =
+//     "https://script.google.com/macros/s/AKfycbxBLZMUMmjwBTmn0qqv4WxYdyzojC1sP7R2wR6t_wfB1WhBMvC4ovVA0ubRtAObFLr5/exec";
+
+//   useEffect(() => {
+//     getUserInfo({
+//       success: (res) => {
+//         if (res.userInfo?.name) setFullName(res.userInfo.name);
+//       },
+//     });
+//   }, []);
+
+//   const handleGetPhoneClick = () => {
+//     getPhoneNumber({
+//       success: (data) => {
+//         if (data.token) {
+//           fetch(`${APP_SCRIPT_URL}?phoneToken=${data.token}`)
+//             .then((res) => res.json())
+//             .then((d) => {
+//               if (d.phone) setPhone(d.phone);
+//             })
+//             .catch(() =>
+//               openSnackbar({ text: "Lỗi giải mã SĐT", type: "error" })
+//             );
+//         }
+//       },
+//     });
+//   };
+
+//   const handleSubmit = async () => {
+//     if (!fullName || !phone || !gender || !province) {
+//       openSnackbar({
+//         text: "Vui lòng nhập đầy đủ thông tin *",
+//         type: "warning",
+//       });
+//       return;
+//     }
+//     setLoading(true);
+//     try {
+//       const params = new URLSearchParams({
+//         fullName,
+//         phone,
+//         gender,
+//         province,
+//         source: "Zalo Mini App",
+//       });
+//       await fetch(APP_SCRIPT_URL, {
+//         method: "POST",
+//         mode: "no-cors",
+//         body: params,
+//       });
+
+//       // Chuyển sang màn hình cảm ơn thay vì reset về bước 1
+//       setStep(3);
+//     } catch (e) {
+//       openSnackbar({ text: "Lỗi kết nối khi gửi thông tin!", type: "error" });
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   // MÀN HÌNH 1: ĐIỀU KHOẢN
+//   if (step === 1) {
+//     return (
+//       <Box className="p-4 bg-white" style={{ minHeight: "100vh" }}>
+//         <Text.Title className="mb-4 text-blue-600">
+//           Khảo sát Thế Giới Kim Cương
+//         </Text.Title>
+//         <Box
+//           className="p-3 border rounded-lg mb-4"
+//           style={{
+//             height: "60vh",
+//             backgroundColor: "#f9f9f9",
+//             overflowY: "auto",
+//           }}
+//         >
+//           <Text size="small">
+//             Trong quá trình tham gia khảo sát, tôi hiểu rằng Công ty có thể thu
+//             thập và sử dụng thông tin cá nhân của tôi để phục vụ mục đích chăm
+//             sóc khách hàng...
+//           </Text>
+//         </Box>
+//         <Box className="flex items-center mb-6">
+//           <Switch
+//             checked={agreed}
+//             onChange={(e) => setAgreed(e.target.checked)}
+//           />
+//           <Text className="ml-2" bold>
+//             Tôi ĐỒNG Ý và TIẾP TỤC
+//           </Text>
+//         </Box>
+//         <Button fullWidth disabled={!agreed} onClick={() => setStep(2)}>
+//           Tiếp tục
+//         </Button>
+//       </Box>
+//     );
+//   }
+
+//   // MÀN HÌNH 3: CẢM ƠN (Dựa trên hình ảnh Panda bạn cung cấp)
+//   if (step === 3) {
+//     return (
+//       <Box
+//         className="p-6 bg-white flex flex-col items-center justify-center"
+//         style={{ minHeight: "100vh" }}
+//       >
+//         <Box className="text-center mb-6">
+//           <Text bold className="mb-2" style={{ fontSize: "18px" }}>
+//             Cảm ơn Quý Khách Hàng đã hoàn thành khảo sát!
+//           </Text>
+//           <Text size="small" className="text-gray-600">
+//             Những đóng góp từ Quý Khách Hàng là động lực để Công ty không ngừng
+//             cải tiến, mang đến sản phẩm và dịch vụ ngày càng chất lượng hơn.
+//           </Text>
+//           <Text size="small" className="text-gray-600 mt-2">
+//             Chúng tôi trân trọng sự đồng hành của Quý Khách Hàng!
+//           </Text>
+//         </Box>
+
+//         {/* Khu vực hình ảnh minh họa (Bạn có thể thay URL ảnh Panda thật của bạn vào đây) */}
+//         <Box
+//           className="mb-8 p-4 border rounded-xl"
+//           style={{
+//             borderColor: "#ffcccc",
+//             width: "100%",
+//             backgroundColor: "#fffafa",
+//           }}
+//         >
+//           <Box className="text-center mb-2">
+//             <Text bold style={{ color: "red", fontSize: "20px" }}>
+//               Hello, my friends.
+//             </Text>
+//           </Box>
+//           <img
+//             src="https://img.freepik.com/premium-vector/cute-panda-character-vector-illustration_6735-866.jpg"
+//             alt="Thank you"
+//             style={{ width: "100%", height: "auto", borderRadius: "8px" }}
+//           />
+//         </Box>
+
+//         <Button
+//           fullWidth
+//           onClick={() => {
+//             // Reset về đầu hoặc đóng ứng dụng
+//             setStep(1);
+//             setFullName("");
+//             setPhone("");
+//             setGender("");
+//             setProvince("");
+//           }}
+//         >
+//           Đóng
+//         </Button>
+//       </Box>
+//     );
+//   }
+
+//   // MÀN HÌNH 2: FORM KHẢO SÁT
+//   return (
+//     <Box className="bg-gray-100 p-4" style={{ minHeight: "100vh" }}>
+//       <Box className="p-6 bg-white rounded-xl shadow-lg">
+//         <Text.Title className="text-center mb-6" style={{ color: "#b4975a" }}>
+//           THÔNG TIN KHÁCH HÀNG
+//         </Text.Title>
+
+//         <Box className="space-y-4">
+//           <Box>
+//             <Text size="small" bold>
+//               Họ và tên <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               value={fullName}
+//               onChange={(e) => setFullName(e.target.value)}
+//               placeholder="Nhập họ tên"
+//             />
+//           </Box>
+
+//           <Box>
+//             <Text size="small" bold className="mb-2 block">
+//               Giới tính <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Box className="flex space-x-2">
+//               {["Nam", "Nữ", "Khác"].map((g) => (
+//                 <Button
+//                   key={g}
+//                   size="small"
+//                   variant={gender === g ? "primary" : "secondary"}
+//                   onClick={() => setGender(g)}
+//                 >
+//                   {g}
+//                 </Button>
+//               ))}
+//             </Box>
+//           </Box>
+
+//           <Box>
+//             <Text size="small" bold>
+//               Số điện thoại <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               value={phone}
+//               onChange={(e) => setPhone(e.target.value)}
+//               suffix={
+//                 <Button variant="tertiary" onClick={handleGetPhoneClick}>
+//                   Lấy số nhanh
+//                 </Button>
+//               }
+//             />
+//           </Box>
+
+//           <Box>
+//             <Text size="small" bold>
+//               Tỉnh/ Thành <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               readOnly
+//               placeholder="Chọn tỉnh thành"
+//               value={province}
+//               onClick={() => setSheetVisible(true)}
+//             />
+
+//             <Sheet
+//               visible={sheetVisible}
+//               onClose={() => setSheetVisible(false)}
+//               autoHeight
+//               title="Chọn Tỉnh/Thành"
+//             >
+//               <Box className="p-4" style={{ minHeight: "60vh" }}>
+//                 <Input.Search
+//                   placeholder="Tìm kiếm..."
+//                   value={searchQuery}
+//                   onChange={(e) => setSearchQuery(e.target.value)}
+//                   className="mb-4"
+//                 />
+//                 <div style={{ maxHeight: "45vh", overflowY: "auto" }}>
+//                   {PROVINCES.filter((p) =>
+//                     removeAccents(p).includes(removeAccents(searchQuery))
+//                   ).map((p) => (
+//                     <div
+//                       key={p}
+//                       className="py-3 border-b active:bg-gray-100"
+//                       style={{ cursor: "pointer" }}
+//                       onClick={() => {
+//                         setProvince(p);
+//                         setSheetVisible(false);
+//                         setSearchQuery("");
+//                       }}
+//                     >
+//                       <Text>{p}</Text>
+//                     </div>
+//                   ))}
+//                 </div>
+//               </Box>
+//             </Sheet>
+//           </Box>
+
+//           <Button
+//             fullWidth
+//             loading={loading}
+//             onClick={handleSubmit}
+//             style={{
+//               background: "linear-gradient(90deg, #b4975a, #d4bd8a)",
+//               borderRadius: "24px",
+//             }}
+//           >
+//             GỬI THÔNG TIN
+//           </Button>
+//         </Box>
+//       </Box>
+//     </Box>
+//   );
+// }
+
+// import React, { useEffect, useState } from "react";
+// import { Box, Text, Input, Button, Switch, useSnackbar, Sheet } from "zmp-ui";
+// import { getUserInfo, getPhoneNumber } from "zmp-sdk/apis";
+
+// // 1. Danh sách tỉnh thành
+// const PROVINCES = [
+//   "TP. Hồ Chí Minh",
+//   "TP. Hà Nội",
+//   "TP. Cần Thơ",
+//   "TP. Đà Nẵng",
+//   "TP. Hải Phòng",
+//   "TP. Huế",
+//   "An Giang",
+//   "Bắc Ninh",
+//   "Cà Mau",
+//   "Cao Bằng",
+//   "Đắk Lắk",
+//   "Điện Biên",
+//   "Đồng Nai",
+//   "Đồng Tháp",
+//   "Gia Lai",
+//   "Hà Tĩnh",
+//   "Hưng Yên",
+//   "Khánh Hoà",
+//   "Lai Châu",
+//   "Lâm Đồng",
+//   "Lạng Sơn",
+//   "Lào Cai",
+//   "Nghệ An",
+//   "Ninh Bình",
+//   "Phú Thọ",
+//   "Quảng Ngãi",
+//   "Quảng Ninh",
+//   "Quảng Trị",
+//   "Sơn La",
+//   "Tây Ninh",
+//   "Thái Nguyên",
+//   "Thanh Hóa",
+//   "Tuyên Quang",
+//   "Vĩnh Long",
+// ];
+
+// // 2. Hàm hỗ trợ tìm kiếm không dấu (Quan trọng để tìm kiếm mượt)
+// const removeAccents = (str) => {
+//   if (!str) return "";
+//   return str
+//     .normalize("NFD")
+//     .replace(/[\u0300-\u036f]/g, "")
+//     .replace(/đ/g, "d")
+//     .replace(/Đ/g, "D")
+//     .toLowerCase();
+// };
+
+// export default function CustomerSurveyForm() {
+//   const [step, setStep] = useState(1);
+//   const [fullName, setFullName] = useState("");
+//   const [phone, setPhone] = useState("");
+//   const [gender, setGender] = useState("");
+//   const [province, setProvince] = useState(""); // Lưu tỉnh thành đã chọn
+//   const [agreed, setAgreed] = useState(false);
+//   const [loading, setLoading] = useState(false);
+
+//   // State cho Sheet tìm kiếm
+//   const [sheetVisible, setSheetVisible] = useState(false);
+//   const [searchQuery, setSearchQuery] = useState("");
+
+//   const { openSnackbar } = useSnackbar();
+
+//   const APP_SCRIPT_URL =
+//     "https://script.google.com/macros/s/AKfycbxBLZMUMmjwBTmn0qqv4WxYdyzojC1sP7R2wR6t_wfB1WhBMvC4ovVA0ubRtAObFLr5/exec";
+
+//   useEffect(() => {
+//     getUserInfo({
+//       success: (res) => {
+//         if (res.userInfo?.name) setFullName(res.userInfo.name);
+//       },
+//     });
+//   }, []);
+
+//   const handleGetPhoneClick = () => {
+//     getPhoneNumber({
+//       success: (data) => {
+//         if (data.token) {
+//           fetch(`${APP_SCRIPT_URL}?phoneToken=${data.token}`)
+//             .then((res) => res.json())
+//             .then((d) => {
+//               if (d.phone) setPhone(d.phone);
+//             })
+//             .catch(() =>
+//               openSnackbar({ text: "Lỗi giải mã SĐT", type: "error" })
+//             );
+//         }
+//       },
+//       fail: () => openSnackbar({ text: "Không lấy được SĐT", type: "error" }),
+//     });
+//   };
+
+//   const handleSubmit = async () => {
+//     if (!fullName || !phone || !gender || !province) {
+//       openSnackbar({
+//         text: "Vui lòng nhập đầy đủ thông tin *",
+//         type: "warning",
+//       });
+//       return;
+//     }
+//     setLoading(true);
+//     try {
+//       const params = new URLSearchParams({
+//         fullName,
+//         phone,
+//         gender,
+//         province,
+//         source: "Zalo Mini App",
+//       });
+//       await fetch(APP_SCRIPT_URL, {
+//         method: "POST",
+//         mode: "no-cors",
+//         body: params,
+//       });
+//       openSnackbar({ text: "Gửi thông tin thành công! 🎉", type: "success" });
+//       setStep(1);
+//     } catch (error) {
+//       openSnackbar({ text: "Gửi thất bại!", type: "error" });
+//     } finally {
+//       setLoading(false);
+//     }
+//   };
+
+//   if (step === 1) {
+//     return (
+//       <Box className="p-4 bg-white" style={{ minHeight: "100vh" }}>
+//         <Text.Title className="mb-4 text-blue-600">
+//           Khảo sát Thế Giới Kim Cương
+//         </Text.Title>
+//         <Box
+//           className="p-3 border rounded-lg overflow-y-auto mb-4"
+//           style={{ height: "60vh", backgroundColor: "#f9f9f9" }}
+//         >
+//           <Text size="small">
+//             Trong quá trình tham gia khảo sát, tôi hiểu rằng Công ty có thể sử
+//             dụng thông tin cá nhân của tôi...
+//           </Text>
+//         </Box>
+//         <Box className="flex items-center mb-6">
+//           <Switch
+//             checked={agreed}
+//             onChange={(e) => setAgreed(e.target.checked)}
+//           />
+//           <Text className="ml-2" bold>
+//             Tôi ĐỒNG Ý và TIẾP TỤC
+//           </Text>
+//         </Box>
+//         <Button fullWidth disabled={!agreed} onClick={() => setStep(2)}>
+//           Tiếp tục
+//         </Button>
+//       </Box>
+//     );
+//   }
+
+//   return (
+//     <Box className="bg-gray-100" style={{ minHeight: "100vh" }}>
+//       <Box className="p-6 bg-white m-4 rounded-xl shadow-lg">
+//         <Text.Title className="text-center mb-6" style={{ color: "#b4975a" }}>
+//           THÔNG TIN KHÁCH HÀNG
+//         </Text.Title>
+
+//         <Box className="space-y-4">
+//           <Box>
+//             <Text size="small" bold>
+//               Họ và tên <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               value={fullName}
+//               onChange={(e) => setFullName(e.target.value)}
+//               placeholder="Nhập họ tên"
+//             />
+//           </Box>
+
+//           <Box>
+//             <Text size="small" bold className="mb-2 block">
+//               Giới tính <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Box className="flex space-x-2">
+//               {["Nam", "Nữ", "Khác"].map((g) => (
+//                 <Button
+//                   key={g}
+//                   size="small"
+//                   variant={gender === g ? "primary" : "secondary"}
+//                   onClick={() => setGender(g)}
+//                 >
+//                   {g}
+//                 </Button>
+//               ))}
+//             </Box>
+//           </Box>
+
+//           <Box>
+//             <Text size="small" bold>
+//               Số điện thoại <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               value={phone}
+//               onChange={(e) => setPhone(e.target.value)}
+//               placeholder="09..."
+//               suffix={
+//                 <Button variant="tertiary" onClick={handleGetPhoneClick}>
+//                   Lấy số nhanh
+//                 </Button>
+//               }
+//             />
+//           </Box>
+
+//           {/* PHẦN CHỌN TỈNH THÀNH - ĐÃ SỬA LỖI KHÔNG LOAD ĐƯỢC DỮ LIỆU */}
+//           <Box>
+//             <Text size="small" bold>
+//               Tỉnh/ Thành <span style={{ color: "red" }}>*</span>
+//             </Text>
+//             <Input
+//               readOnly
+//               placeholder="Chọn tỉnh thành"
+//               value={province} // QUAN TRỌNG: Hiển thị giá trị từ state province
+//               onClick={() => setSheetVisible(true)}
+//             />
+
+//             <Sheet
+//               visible={sheetVisible}
+//               onClose={() => setSheetVisible(false)}
+//               autoHeight
+//               title="Chọn Tỉnh/Thành"
+//             >
+//               <Box className="p-4" style={{ minHeight: "60vh" }}>
+//                 <Input.Search
+//                   placeholder="Tìm tên tỉnh thành..."
+//                   value={searchQuery}
+//                   onChange={(e) => setSearchQuery(e.target.value)}
+//                   className="mb-4"
+//                 />
+//                 <Box style={{ maxHeight: "45vh", overflowY: "auto" }}>
+//                   {PROVINCES.filter((p) =>
+//                     removeAccents(p).includes(removeAccents(searchQuery))
+//                   ).map((p) => (
+//                     <div
+//                       key={p}
+//                       className="py-3 border-b active:bg-gray-100"
+//                       style={{ cursor: "pointer", display: "block" }}
+//                       onClick={() => {
+//                         setProvince(p); // Gán giá trị vào state
+//                         setSheetVisible(false); // Đóng sheet
+//                         setSearchQuery(""); // Reset ô tìm kiếm
+//                       }}
+//                     >
+//                       <Text>{p}</Text>
+//                     </div>
+//                   ))}
+//                 </Box>
+//               </Box>
+//             </Sheet>
+//           </Box>
+
+//           <Button
+//             fullWidth
+//             loading={loading}
+//             onClick={handleSubmit}
+//             className="mt-6"
+//             style={{
+//               background: "linear-gradient(90deg, #b4975a, #d4bd8a)",
+//               borderRadius: "24px",
+//             }}
+//           >
+//             GỬI THÔNG TIN
+//           </Button>
+//         </Box>
+//       </Box>
+//     </Box>
+//   );
+// }
 
 // import React, { useEffect, useState } from "react";
 // import {
